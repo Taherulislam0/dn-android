@@ -1,47 +1,4 @@
-name: Build WebView Android App
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-jobs:
-  build-webview:
-    runs-on: ubuntu-latest
-
-    env:
-      NODE_VERSION: 20
-      APP_NAME: "Dohar Connect"
-      PACKAGE_NAME: "com.dohar.connect"
-      WEB_URL: "https://dohar-connect.vercel.app/"
-      # Optional keystore secrets
-      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install Capacitor
-        run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android --save
-
-      - name: Initialize Capacitor Android
-        run: |
-          if [ ! -d "android" ]; then
-            npx cap init "${APP_NAME}" "${PACKAGE_NAME}"
-            npx cap add android
-          fi
-
-      - name: Generate WebView HTML
+- name: Generate WebView HTML
         run: |
           mkdir -p www
           cat <<EOT > www/index.html
@@ -56,38 +13,3 @@ jobs:
 </body>
 </html>
 EOT
-
-      - name: Sync Capacitor
-        run: npx cap sync android
-
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
-
-      - name: Build Debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug
-
-      - name: Build Release APK
-        working-directory: android
-        run: |
-          if [ -f android/app/keystore.jks ]; then
-            ./gradlew assembleRelease \
-              -Pandroid.injected.signing.store.file=android/app/keystore.jks \
-              -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
-              -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
-              -Pandroid.injected.signing.key.password=$KEY_PASSWORD
-          else
-            ./gradlew assembleRelease
-          fi
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: webview-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: webview-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
