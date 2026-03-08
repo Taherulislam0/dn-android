@@ -1,4 +1,4 @@
-name: Build React + Capacitor Android APK
+name: Build WebView Android App
 
 on:
   push:
@@ -7,68 +7,70 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-android:
+  build-webview:
     runs-on: ubuntu-latest
 
     env:
       NODE_VERSION: 20
-      APP_NAME: "DN App"
+      APP_NAME: "Dohar Connect"
       PACKAGE_NAME: "com.dohar.connect"
-      # Keystore secrets (set these in GitHub repo settings -> Secrets)
+      WEB_URL: "https://dohar-connect.vercel.app/"
+      # Keystore secrets for signing (optional)
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # 3️⃣ Install Capacitor + React dependencies
-      - name: Install npm dependencies
-        run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android --save
-          npm install
+      # 1️⃣ Install Capacitor CLI + core + android
+      - name: Install Capacitor dependencies
+        run: npm install @capacitor/cli @capacitor/core @capacitor/android --save
 
-      # 4️⃣ Initialize Capacitor + Add Android platform if android folder missing
-      - name: Initialize Capacitor Android
+      # 2️⃣ Initialize Capacitor + Add Android
+      - name: Initialize Capacitor WebView App
         run: |
           if [ ! -d "android" ]; then
             npx cap init "${APP_NAME}" "${PACKAGE_NAME}"
             npx cap add android
           fi
 
-      # 5️⃣ Build React project
-      - name: Build React
-        run: npm run build
+      # 3️⃣ Generate minimal web assets (index.html with iframe to your URL)
+      - name: Generate WebView HTML
+        run: |
+          mkdir -p www
+          echo "<!DOCTYPE html>
+<html>
+  <head>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>${APP_NAME}</title>
+  </head>
+  <body>
+    <iframe src='${WEB_URL}' style='width:100%; height:100vh; border:none;'></iframe>
+  </body>
+</html>" > www/index.html
 
-      # 6️⃣ Sync Capacitor Android
-      - name: Sync Capacitor
+      # 4️⃣ Sync Capacitor Android
+      - name: Sync Capacitor Android
         run: npx cap sync android
 
-      # 7️⃣ Setup keystore for signing (Release build)
-      - name: Setup Keystore
-        if: env.KEYSTORE_BASE64 != ''
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
-
-      # 8️⃣ Make gradlew executable
+      # 5️⃣ Grant gradlew execute permission
       - name: Make gradlew executable
         run: chmod +x ./android/gradlew
 
-      # 9️⃣ Build Debug APK
+      # 6️⃣ Build Debug APK
       - name: Build Debug APK
         working-directory: ./android
         run: ./gradlew assembleDebug
 
-      # 🔟 Build Release APK (signed if keystore available)
+      # 7️⃣ Build Release APK
       - name: Build Release APK
         working-directory: ./android
         run: |
@@ -82,16 +84,16 @@ jobs:
             ./gradlew assembleRelease
           fi
 
-      # 1️⃣1️⃣ Upload Debug APK
+      # 8️⃣ Upload Debug APK
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: dn-android-debug-apk
+          name: webview-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
-      # 1️⃣2️⃣ Upload Release APK
+      # 9️⃣ Upload Release APK
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: dn-android-release-apk
+          name: webview-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
