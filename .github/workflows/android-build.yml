@@ -1,4 +1,4 @@
-name: Build React + Capacitor Android Release
+name: Build React + Capacitor Android APK
 
 on:
   push:
@@ -7,13 +7,18 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-android-release:
+  build-android:
     runs-on: ubuntu-latest
 
     env:
       NODE_VERSION: 20
       APP_NAME: "DN App"
       PACKAGE_NAME: "com.dohar.connect"
+      # Keystore secrets (set these in GitHub repo settings -> Secrets)
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
     steps:
       # 1️⃣ Checkout repository
@@ -26,11 +31,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # 3️⃣ Install Capacitor globally
-      - name: Install Capacitor CLI
-        run: npm install @capacitor/cli @capacitor/core --save
+      # 3️⃣ Install Capacitor + React dependencies
+      - name: Install npm dependencies
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android --save
+          npm install
 
-      # 4️⃣ Initialize Capacitor if android folder doesn't exist
+      # 4️⃣ Initialize Capacitor + Add Android platform if android folder missing
       - name: Initialize Capacitor Android
         run: |
           if [ ! -d "android" ]; then
@@ -38,28 +45,51 @@ jobs:
             npx cap add android
           fi
 
-      # 5️⃣ Install React dependencies
-      - name: Install npm dependencies
-        run: npm install
-
-      # 6️⃣ Build React project
+      # 5️⃣ Build React project
       - name: Build React
         run: npm run build
 
-      # 7️⃣ Sync Capacitor
-      - name: Sync Capacitor Android
+      # 6️⃣ Sync Capacitor Android
+      - name: Sync Capacitor
         run: npx cap sync android
 
-      # 8️⃣ Grant gradlew execute permission
+      # 7️⃣ Setup keystore for signing (Release build)
+      - name: Setup Keystore
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+
+      # 8️⃣ Make gradlew executable
       - name: Make gradlew executable
         run: chmod +x ./android/gradlew
 
-      # 9️⃣ Build Release APK
+      # 9️⃣ Build Debug APK
+      - name: Build Debug APK
+        working-directory: ./android
+        run: ./gradlew assembleDebug
+
+      # 🔟 Build Release APK (signed if keystore available)
       - name: Build Release APK
         working-directory: ./android
-        run: ./gradlew assembleRelease
+        run: |
+          if [ -f android/app/keystore.jks ]; then
+            ./gradlew assembleRelease \
+              -Pandroid.injected.signing.store.file=android/app/keystore.jks \
+              -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+              -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+              -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+          else
+            ./gradlew assembleRelease
+          fi
 
-      # 🔟 Upload Release APK
+      # 1️⃣1️⃣ Upload Debug APK
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dn-android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      # 1️⃣2️⃣ Upload Release APK
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
