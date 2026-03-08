@@ -22,7 +22,7 @@ jobs:
       KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -44,16 +44,18 @@ jobs:
       - name: Generate WebView HTML
         run: |
           mkdir -p www
-          echo "<!DOCTYPE html>
+          cat <<EOT > www/index.html
+<!DOCTYPE html>
 <html>
   <head>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${APP_NAME}</title>
   </head>
   <body>
-    <iframe src='${WEB_URL}' style='width:100%; height:100vh; border:none;'></iframe>
+    <iframe src="${WEB_URL}" style="width:100%; height:100vh; border:none;"></iframe>
   </body>
-</html>" > www/index.html
+</html>
+EOT
 
       - name: Sync Capacitor Android
         run: npx cap sync android
