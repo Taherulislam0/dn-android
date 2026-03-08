@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build React + Capacitor Android Release
 
 on:
   push:
@@ -7,31 +7,61 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-android-release:
     runs-on: ubuntu-latest
 
+    env:
+      NODE_VERSION: 20
+      APP_NAME: "DN App"
+      PACKAGE_NAME: "com.dohar.connect"
+
     steps:
-      - uses: actions/checkout@v4
+      # 1️⃣ Checkout repository
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Setup JDK
-        uses: actions/setup-java@v4
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          distribution: temurin
-          java-version: 17
+          node-version: ${{ env.NODE_VERSION }}
 
+      # 3️⃣ Install Capacitor globally
+      - name: Install Capacitor CLI
+        run: npm install @capacitor/cli @capacitor/core --save
+
+      # 4️⃣ Initialize Capacitor if android folder doesn't exist
+      - name: Initialize Capacitor Android
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap init "${APP_NAME}" "${PACKAGE_NAME}"
+            npx cap add android
+          fi
+
+      # 5️⃣ Install React dependencies
+      - name: Install npm dependencies
+        run: npm install
+
+      # 6️⃣ Build React project
+      - name: Build React
+        run: npm run build
+
+      # 7️⃣ Sync Capacitor
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      # 8️⃣ Grant gradlew execute permission
       - name: Make gradlew executable
-        run: chmod +x ./gradlew
+        run: chmod +x ./android/gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
-
+      # 9️⃣ Build Release APK
       - name: Build Release APK
+        working-directory: ./android
         run: ./gradlew assembleRelease
 
-      - name: Upload APKs
+      # 🔟 Upload Release APK
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-apks
-          path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release.apk
+          name: dn-android-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
