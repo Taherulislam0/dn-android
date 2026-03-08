@@ -1,4 +1,4 @@
-name: Build React + Capacitor Android
+name: Build Android APK
 
 on:
   push:
@@ -7,63 +7,31 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
 
-    env:
-      NODE_VERSION: 20
-
     steps:
-      # 1️⃣ Checkout repo
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup JDK
+        uses: actions/setup-java@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          distribution: temurin
+          java-version: 17
 
-      # 3️⃣ Install React / Capacitor dependencies
-      - name: Install dependencies
-        run: npm install
-
-      # 4️⃣ Build React project
-      - name: Build React
-        run: npm run build
-
-      # 5️⃣ Install Capacitor Android
-      - name: Install Capacitor Android
-        run: npm install @capacitor/android
-
-      # 6️⃣ Sync Capacitor
-      - name: Sync Capacitor
-        run: npx cap sync android
-
-      # 7️⃣ Grant gradlew execute permission
       - name: Make gradlew executable
-        run: chmod +x ./android/gradlew
+        run: chmod +x ./gradlew
 
-      # 8️⃣ Build Debug APK
       - name: Build Debug APK
-        working-directory: ./android
         run: ./gradlew assembleDebug
 
-      # 9️⃣ Build Release APK
       - name: Build Release APK
-        working-directory: ./android
         run: ./gradlew assembleRelease
 
-      # 🔟 Upload Debug APK
-      - name: Upload Debug APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: dn-android-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-
-      # 1️⃣1️⃣ Upload Release APK
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: dn-android-release-apk
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: android-apks
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/release/app-release.apk
