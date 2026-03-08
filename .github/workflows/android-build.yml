@@ -15,7 +15,7 @@ jobs:
       APP_NAME: "Dohar Connect"
       PACKAGE_NAME: "com.dohar.connect"
       WEB_URL: "https://dohar-connect.vercel.app/"
-      # Keystore secrets for signing (optional)
+      # Optional keystore secrets
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
       KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -30,19 +30,17 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # 1️⃣ Install Capacitor CLI + core + android
       - name: Install Capacitor dependencies
-        run: npm install @capacitor/cli @capacitor/core @capacitor/android --save
+        run: |
+          npm install @capacitor/cli @capacitor/core @capacitor/android --save
 
-      # 2️⃣ Initialize Capacitor + Add Android
-      - name: Initialize Capacitor WebView App
+      - name: Initialize Capacitor Android
         run: |
           if [ ! -d "android" ]; then
             npx cap init "${APP_NAME}" "${PACKAGE_NAME}"
             npx cap add android
           fi
 
-      # 3️⃣ Generate minimal web assets (index.html with iframe to your URL)
       - name: Generate WebView HTML
         run: |
           mkdir -p www
@@ -57,20 +55,16 @@ jobs:
   </body>
 </html>" > www/index.html
 
-      # 4️⃣ Sync Capacitor Android
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      # 5️⃣ Grant gradlew execute permission
       - name: Make gradlew executable
         run: chmod +x ./android/gradlew
 
-      # 6️⃣ Build Debug APK
       - name: Build Debug APK
         working-directory: ./android
         run: ./gradlew assembleDebug
 
-      # 7️⃣ Build Release APK
       - name: Build Release APK
         working-directory: ./android
         run: |
@@ -84,14 +78,12 @@ jobs:
             ./gradlew assembleRelease
           fi
 
-      # 8️⃣ Upload Debug APK
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: webview-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
-      # 9️⃣ Upload Release APK
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
